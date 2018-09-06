@@ -51,8 +51,8 @@ program
   .option('-s, --songs <i>', 'Limit to number of songs per artist', parseInt)
   .action((artist, options) => {
     query.artist = artist
-    query.limit = typeof options.limit === 'number' ? options.limit : 10;
-    query.songs = typeof options.songs === 'number' ? options.limit : 10;
+    query.limit = typeof options.limit === 'number' ? options.limit : Infinity;
+    query.songs = typeof options.songs === 'number' ? options.limit : Infinity;
     query.playlistName = typeof options.name === 'string' ? options.name : `WHAT ${artist}`;
     setUp()
       .then(() => {
@@ -83,7 +83,6 @@ const discoverify = async () => {
       return spotifyApi.getArtistRelatedArtists(id)
     })
     .then(data => {
-      console.log('getArtistRelatedArtists', data)
       // get top track from every related artist
       return Promise.all(data.body.artists.map(item => {
         return spotifyApi.getArtistTopTracks(item.id, 'DE')
@@ -103,17 +102,20 @@ const discoverify = async () => {
     })
     .then(data => {
       // add frist 100 songs to playlist
-      const options = {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ // have to manually stringify object in body
-          uris: data.slice(0, 100)
-        })
+      while (data.length > 0) {
+        const options = {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ // have to manually stringify object in body
+            uris: data.splice(0, 100)
+          })
+        }
+        got.post(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, options)
       }
-      return got.post(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, options)
+      return
     })
-    .then(data => {
+    .then(() => {
       console.log('Added tracks to playlist', query.playlistName)
     })
     .catch((error) => {
